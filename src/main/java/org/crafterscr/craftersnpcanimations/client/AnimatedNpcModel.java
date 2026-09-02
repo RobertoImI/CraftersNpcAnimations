@@ -2,17 +2,30 @@ package org.crafterscr.craftersnpcanimations.client;
 
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.util.Mth;
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmote;
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmotePlayback;
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteRegistry;
+import org.crafterscr.craftersnpcanimations.animation.engine.NpcAnimationEngine;
 import org.crafterscr.craftersnpcanimations.entity.AnimatedNpcEntity;
+
+import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendController;
+import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendPose;
 
 public class AnimatedNpcModel
         extends PlayerModel<AnimatedNpcEntity> {
+
+    private NpcBendPose currentBendPose =
+            new NpcBendPose();
 
     public AnimatedNpcModel(
             ModelPart root,
             boolean slim
     ) {
-        super(root, slim);
+
+        super(
+                root,
+                slim
+        );
     }
 
     @Override
@@ -26,16 +39,21 @@ public class AnimatedNpcModel
     ) {
 
         /*
-         * MUY IMPORTANTE:
-         *
-         * Limpiamos cualquier transformación dejada
-         * por el emote del frame anterior.
-         *
-         * Después Vanilla vuelve a calcular caminar,
-         * mirar, brazos, piernas, etc.
+         * ==============================
+         * RESET
+         * ==============================
          */
+
         resetAnimatedParts();
 
+        /*
+         * Vanilla calcula:
+         *
+         * caminar
+         * cabeza
+         * brazos
+         * piernas
+         */
         super.setupAnim(
                 entity,
                 limbSwing,
@@ -46,42 +64,196 @@ public class AnimatedNpcModel
         );
 
         /*
-         * Si no hay emote activo dejamos solamente
-         * la animación Vanilla calculada arriba.
+         * Sin emote:
+         *
+         * solamente Vanilla.
          */
         if (!entity.isAnimationPlaying()) {
+
+            currentBendPose.reset();
+
             return;
         }
 
-        String animation =
-                entity.getAnimationId();
+        /*
+         * ==============================
+         * BUSCAR EMOTE
+         * ==============================
+         */
 
-        switch (animation) {
+        NpcEmote emote =
+                NpcEmoteRegistry.get(
+                        entity.getAnimationId()
+                );
 
-            case "wave" ->
-                    applyWave(ageInTicks);
+        /*
+         * Mantener temporalmente compatibilidad
+         * con las animaciones antiguas.
+         */
+        if (emote == null) {
 
-            case "sit" ->
-                    applySit();
+            currentBendPose.reset();
 
-            case "dance" ->
-                    applyDance(ageInTicks);
-
-            default -> {
-                // Emote desconocido.
-                // Simplemente conserva Vanilla.
-            }
+            return;
         }
+
+        /*
+         * ==============================
+         * TIEMPO
+         * ==============================
+         */
+
+        long gameTime =
+                entity.level()
+                        .getGameTime();
+
+        long startedAt =
+                entity.getAnimationStart();
+
+        /*
+         * ageInTicks contiene:
+         *
+         * entity.tickCount + partialTicks
+         *
+         * Recuperamos la fracción para que
+         * no se vea a 20 FPS.
+         */
+        float partialTick =
+                ageInTicks
+                        - entity.tickCount;
+
+        float elapsedTicks =
+                (gameTime - startedAt)
+                        + partialTick;
+
+        if (elapsedTicks < 0.0F) {
+            elapsedTicks = 0.0F;
+        }
+
+        float animationTick =
+                NpcEmotePlayback
+                        .calculateAnimationTick(
+                                emote,
+                                elapsedTicks,
+                                entity.isAnimationLooping()
+                        );
+
+        currentBendPose =
+                NpcBendController.sample(
+                        emote,
+                        animationTick
+                );
+
+        /*
+         * ==============================
+         * APLICAR EMOTE
+         * ==============================
+         */
+
+        applyEmote(
+                emote,
+                animationTick
+        );
+
+        /*
+         * ==============================
+         * SEGUNDA CAPA
+         * ==============================
+         *
+         * La ropa debe seguir al cuerpo.
+         */
+
+        hat.copyFrom(
+                head
+        );
+
+        jacket.copyFrom(
+                body
+        );
+
+        rightSleeve.copyFrom(
+                rightArm
+        );
+
+        leftSleeve.copyFrom(
+                leftArm
+        );
+
+        rightPants.copyFrom(
+                rightLeg
+        );
+
+        leftPants.copyFrom(
+                leftLeg
+        );
+    }
+
+    private void applyEmote(
+            NpcEmote emote,
+            float tick
+    ) {
+
+        /*
+         * HEAD
+         */
+        NpcAnimationEngine.applyBone(
+                emote,
+                "head",
+                head,
+                tick
+        );
+
+        /*
+         * TORSO
+         */
+        NpcAnimationEngine.applyBone(
+                emote,
+                "torso",
+                body,
+                tick
+        );
+
+        /*
+         * BRAZOS
+         */
+        NpcAnimationEngine.applyBone(
+                emote,
+                "rightArm",
+                rightArm,
+                tick
+        );
+
+        NpcAnimationEngine.applyBone(
+                emote,
+                "leftArm",
+                leftArm,
+                tick
+        );
+
+        /*
+         * PIERNAS
+         */
+        NpcAnimationEngine.applyBone(
+                emote,
+                "rightLeg",
+                rightLeg,
+                tick
+        );
+
+        NpcAnimationEngine.applyBone(
+                emote,
+                "leftLeg",
+                leftLeg,
+                tick
+        );
     }
 
     /*
      * ==============================
      * RESET
      * ==============================
-     *
-     * Evita que una transformación de un emote
-     * permanezca después de detenerlo.
      */
+
     private void resetAnimatedParts() {
 
         head.resetPose();
@@ -103,128 +275,19 @@ public class AnimatedNpcModel
         leftPants.resetPose();
     }
 
-    /*
-     * ==============================
-     * WAVE
-     * ==============================
-     */
-
-    private void applyWave(float age) {
-
-        float wave =
-                Mth.sin(age * 0.35F) * 0.35F;
-
-        rightArm.xRot =
-                -2.7F;
-
-        rightArm.zRot =
-                0.35F + wave;
-
-        rightSleeve.copyFrom(
-                rightArm
-        );
+    public float getRightArmBend() {
+        return currentBendPose.rightArm();
     }
 
-    /*
-     * ==============================
-     * SIT
-     * ==============================
-     */
-
-    private void applySit() {
-
-        body.xRot = 0.0F;
-        body.yRot = 0.0F;
-        body.zRot = 0.0F;
-
-        rightLeg.xRot =
-                -1.45F;
-
-        leftLeg.xRot =
-                -1.45F;
-
-        rightLeg.yRot =
-                0.15F;
-
-        leftLeg.yRot =
-                -0.15F;
-
-        rightPants.copyFrom(
-                rightLeg
-        );
-
-        leftPants.copyFrom(
-                leftLeg
-        );
-
-        rightArm.xRot =
-                -0.25F;
-
-        leftArm.xRot =
-                -0.25F;
-
-        rightSleeve.copyFrom(
-                rightArm
-        );
-
-        leftSleeve.copyFrom(
-                leftArm
-        );
-
-        jacket.copyFrom(
-                body
-        );
+    public float getLeftArmBend() {
+        return currentBendPose.leftArm();
     }
 
-    /*
-     * ==============================
-     * DANCE
-     * ==============================
-     */
+    public float getRightLegBend() {
+        return currentBendPose.rightLeg();
+    }
 
-    private void applyDance(float age) {
-
-        float movement =
-                Mth.sin(age * 0.25F);
-
-        float opposite =
-                Mth.cos(age * 0.25F);
-
-        body.zRot =
-                movement * 0.15F;
-
-        rightArm.zRot =
-                1.3F
-                        + movement * 0.4F;
-
-        leftArm.zRot =
-                -1.3F
-                        - movement * 0.4F;
-
-        rightLeg.xRot =
-                opposite * 0.4F;
-
-        leftLeg.xRot =
-                -opposite * 0.4F;
-
-        rightSleeve.copyFrom(
-                rightArm
-        );
-
-        leftSleeve.copyFrom(
-                leftArm
-        );
-
-        rightPants.copyFrom(
-                rightLeg
-        );
-
-        leftPants.copyFrom(
-                leftLeg
-        );
-
-        jacket.copyFrom(
-                body
-        );
+    public float getLeftLegBend() {
+        return currentBendPose.leftLeg();
     }
 }

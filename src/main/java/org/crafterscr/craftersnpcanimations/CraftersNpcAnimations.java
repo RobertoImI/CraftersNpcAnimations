@@ -9,6 +9,9 @@ import org.crafterscr.craftersnpcanimations.command.CnpcaCommands;
 import org.crafterscr.craftersnpcanimations.entity.ModEntities;
 import org.slf4j.Logger;
 
+import net.neoforged.fml.loading.FMLPaths;
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteLoader;
+
 @Mod(CraftersNpcAnimations.MOD_ID)
 public final class CraftersNpcAnimations {
 
@@ -23,6 +26,10 @@ public final class CraftersNpcAnimations {
         NeoForge.EVENT_BUS.addListener(this::registerCommands);
 
         LOGGER.info("Crafters NPC Animations inicializado.");
+
+        NpcEmoteLoader.initialize(
+                FMLPaths.GAMEDIR.get()
+        );
     }
 
     private void registerCommands(RegisterCommandsEvent event) {

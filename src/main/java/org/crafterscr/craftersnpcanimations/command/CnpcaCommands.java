@@ -13,6 +13,16 @@ import org.crafterscr.craftersnpcanimations.entity.ModEntities;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteLoader;
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteRegistry;
+
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmote;
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteBoneTrack;
+
+import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendController;
+import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendPose;
+import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmotePlayback;
+
 public final class CnpcaCommands {
 
     private CnpcaCommands() {
@@ -231,7 +241,77 @@ public final class CnpcaCommands {
                                                         )
                                         )
                         )
+
+                        .then(
+                                Commands.literal("emotes")
+
+                                        .then(
+                                                Commands.literal("list")
+                                                        .executes(
+                                                                context ->
+                                                                        listEmotes(
+                                                                                context.getSource()
+                                                                        )
+                                                        )
+                                        )
+
+                                        .then(
+                                                Commands.literal("reload")
+                                                        .executes(
+                                                                context ->
+                                                                        reloadEmotes(
+                                                                                context.getSource()
+                                                                        )
+                                                        )
+                                        )
+
+                                        .then(
+                                                Commands.literal("info")
+                                                        .then(
+                                                                Commands.argument(
+                                                                                "emote",
+                                                                                StringArgumentType.word()
+                                                                        )
+                                                                        .executes(
+                                                                                context ->
+                                                                                        showEmoteInfo(
+                                                                                                context.getSource(),
+                                                                                                StringArgumentType.getString(
+                                                                                                        context,
+                                                                                                        "emote"
+                                                                                                )
+                                                                                        )
+                                                                        )
+                                                        )
+                                        )
+                        )
+
+                        .then(
+                                Commands.literal("debug")
+
+                                        .then(
+                                                Commands.literal("bend")
+
+                                                        .then(
+                                                                Commands.argument(
+                                                                                "id",
+                                                                                StringArgumentType.word()
+                                                                        )
+
+                                                                        .executes(context ->
+                                                                                debugBend(
+                                                                                        context.getSource(),
+                                                                                        StringArgumentType.getString(
+                                                                                                context,
+                                                                                                "id"
+                                                                                        )
+                                                                                )
+                                                                        )
+                                                        )
+                                        )
+                        )
         );
+
     }
 
     /*
@@ -474,7 +554,29 @@ public final class CnpcaCommands {
 
             source.sendFailure(
                     Component.literal(
-                            "NPC no encontrado: " + id
+                            "NPC no encontrado: "
+                                    + id
+                    )
+            );
+
+            return 0;
+        }
+
+        /*
+         * Comprobar biblioteca.
+         */
+        NpcEmote loadedEmote =
+                NpcEmoteRegistry.get(
+                        emote
+                );
+
+        if (loadedEmote == null) {
+
+            source.sendFailure(
+                    Component.literal(
+                            "Emote no encontrado: "
+                                    + emote
+                                    + ". Usa /cnpca emotes list"
                     )
             );
 
@@ -482,17 +584,21 @@ public final class CnpcaCommands {
         }
 
         npc.playAnimation(
-                emote,
+                loadedEmote.id(),
                 loop
         );
 
         source.sendSuccess(
                 () -> Component.literal(
                         "Emote "
-                                + emote
+                                + loadedEmote.id()
                                 + " iniciado en "
                                 + id
-                                + (loop ? " [LOOP]" : "")
+                                + (
+                                loop
+                                        ? " [LOOP FORZADO]"
+                                        : ""
+                        )
                 ),
                 true
         );
@@ -571,5 +677,305 @@ public final class CnpcaCommands {
         }
 
         return result;
+    }
+
+    private static int listEmotes(
+            CommandSourceStack source
+    ) {
+
+        List<String> emotes =
+                NpcEmoteRegistry.ids();
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Emotes cargados: "
+                                + emotes.size()
+                ),
+                false
+        );
+
+        if (emotes.isEmpty()) {
+
+            source.sendSuccess(
+                    () -> Component.literal(
+                            "No hay archivos .json dentro de /emotes"
+                    ),
+                    false
+            );
+
+            return 0;
+        }
+
+        for (String emote : emotes) {
+
+            source.sendSuccess(
+                    () -> Component.literal(
+                            " - " + emote
+                    ),
+                    false
+            );
+        }
+
+        return emotes.size();
+    }
+
+    private static int reloadEmotes(
+            CommandSourceStack source
+    ) {
+
+        NpcEmoteLoader.reload();
+
+        int count =
+                NpcEmoteRegistry.size();
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Biblioteca de emotes recargada. "
+                                + count
+                                + " emote(s) encontrados."
+                ),
+                true
+        );
+
+        return count;
+    }
+
+    private static int showEmoteInfo(
+            CommandSourceStack source,
+            String id
+    ) {
+
+        NpcEmote emote =
+                NpcEmoteRegistry.get(id);
+
+        if (emote == null) {
+
+            source.sendFailure(
+                    Component.literal(
+                            "Emote no encontrado: " + id
+                    )
+            );
+
+            return 0;
+        }
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "===== EMOTE ====="
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "ID: " + emote.id()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Nombre: "
+                                + emote.displayName()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Autor: "
+                                + emote.author()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Loop: "
+                                + (
+                                emote.loop()
+                                        ? "Sí"
+                                        : "No"
+                        )
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "BeginTick: "
+                                + emote.beginTick()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "ReturnTick: "
+                                + emote.returnTick()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "EndTick: "
+                                + emote.endTick()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "StopTick: "
+                                + emote.stopTick()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Huesos: "
+                                + emote.bones().size()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Keyframes: "
+                                + emote.totalKeyframes()
+                ),
+                false
+        );
+
+        for (NpcEmoteBoneTrack bone :
+                emote.bones().values()) {
+
+            source.sendSuccess(
+                    () -> Component.literal(
+                            " - "
+                                    + bone.boneName()
+                                    + ": "
+                                    + bone.getKeyframeCount()
+                                    + " keyframes"
+                    ),
+                    false
+            );
+        }
+
+        return 1;
+    }
+
+    private static int debugBend(
+            CommandSourceStack source,
+            String id
+    ) {
+
+        AnimatedNpcEntity npc =
+                findNpc(
+                        source.getLevel(),
+                        id
+                );
+
+        if (npc == null) {
+
+            source.sendFailure(
+                    Component.literal(
+                            "NPC no encontrado: " + id
+                    )
+            );
+
+            return 0;
+        }
+
+        if (!npc.isAnimationPlaying()) {
+
+            source.sendFailure(
+                    Component.literal(
+                            "El NPC no está reproduciendo ningún emote."
+                    )
+            );
+
+            return 0;
+        }
+
+        NpcEmote emote =
+                NpcEmoteRegistry.get(
+                        npc.getAnimationId()
+                );
+
+        if (emote == null) {
+
+            source.sendFailure(
+                    Component.literal(
+                            "El emote activo no está cargado."
+                    )
+            );
+
+            return 0;
+        }
+
+        float elapsed =
+                source.getLevel()
+                        .getGameTime()
+                        - npc.getAnimationStart();
+
+        float tick =
+                NpcEmotePlayback.calculateAnimationTick(
+                        emote,
+                        elapsed,
+                        npc.isAnimationLooping()
+                );
+
+        NpcBendPose bend =
+                NpcBendController.sample(
+                        emote,
+                        tick
+                );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "===== BEND ====="
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "Tick: " + tick
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "RightArm: " + bend.rightArm()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "LeftArm: " + bend.leftArm()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "RightLeg: " + bend.rightLeg()
+                ),
+                false
+        );
+
+        source.sendSuccess(
+                () -> Component.literal(
+                        "LeftLeg: " + bend.leftLeg()
+                ),
+                false
+        );
+
+        return 1;
     }
 }
