@@ -17,6 +17,11 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 repositories {
     mavenCentral()
     mavenLocal()
+
+    maven {
+        name = "RedlanceMinecraft"
+        url = "https://repo.redlance.org/public"
+    }
 }
 
 neoForge {
@@ -98,4 +103,11 @@ idea {
         downloadSources = true
         downloadJavadoc = true
     }
+}
+
+dependencies {
+
+    implementation(
+            "com.zigythebird.bendable_cuboids:BendableCuboidsNeoForge:2.0.0+alpha.1+dev+mc.1.21.1"
+    )
 }

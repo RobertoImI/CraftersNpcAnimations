@@ -1,11 +1,12 @@
 package org.crafterscr.craftersnpcanimations.client;
 
-import net.minecraft.client.model.geom.ModelLayers;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.resources.ResourceLocation;
 import org.crafterscr.craftersnpcanimations.entity.AnimatedNpcEntity;
 import org.crafterscr.craftersnpcanimations.skin.NpcSkinManager;
+
+import org.crafterscr.craftersnpcanimations.client.model.AnimatedNpcModelLayers;
 
 public class AnimatedNpcRenderer
         extends HumanoidMobRenderer<
@@ -24,7 +25,7 @@ public class AnimatedNpcRenderer
                 context,
                 new AnimatedNpcModel(
                         context.bakeLayer(
-                                ModelLayers.PLAYER
+                                AnimatedNpcModelLayers.WIDE
                         ),
                         false
                 ),
@@ -36,7 +37,7 @@ public class AnimatedNpcRenderer
         slimModel =
                 new AnimatedNpcModel(
                         context.bakeLayer(
-                                ModelLayers.PLAYER_SLIM
+                                AnimatedNpcModelLayers.SLIM
                         ),
                         true
                 );

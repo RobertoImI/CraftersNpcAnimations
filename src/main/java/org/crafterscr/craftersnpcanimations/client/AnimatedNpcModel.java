@@ -11,6 +11,8 @@ import org.crafterscr.craftersnpcanimations.entity.AnimatedNpcEntity;
 import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendController;
 import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendPose;
 
+import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendApplier;
+
 public class AnimatedNpcModel
         extends PlayerModel<AnimatedNpcEntity> {
 
@@ -72,6 +74,8 @@ public class AnimatedNpcModel
 
             currentBendPose.reset();
 
+            resetBends();
+
             return;
         }
 
@@ -93,6 +97,8 @@ public class AnimatedNpcModel
         if (emote == null) {
 
             currentBendPose.reset();
+
+            resetBends();
 
             return;
         }
@@ -144,6 +150,7 @@ public class AnimatedNpcModel
                         animationTick
                 );
 
+
         /*
          * ==============================
          * APLICAR EMOTE
@@ -154,6 +161,8 @@ public class AnimatedNpcModel
                 emote,
                 animationTick
         );
+
+        applyBends();
 
         /*
          * ==============================
@@ -289,5 +298,67 @@ public class AnimatedNpcModel
 
     public float getLeftLegBend() {
         return currentBendPose.leftLeg();
+    }
+
+    private void applyBends() {
+
+        /*
+         * =============================
+         * BRAZOS
+         * =============================
+         */
+
+        NpcBendApplier.apply(
+                rightArm,
+                currentBendPose.rightArm()
+        );
+
+        NpcBendApplier.apply(
+                leftArm,
+                currentBendPose.leftArm()
+        );
+
+        /*
+         * Segunda capa de la skin.
+         */
+        NpcBendApplier.apply(
+                rightSleeve,
+                currentBendPose.rightArm()
+        );
+
+        NpcBendApplier.apply(
+                leftSleeve,
+                currentBendPose.leftArm()
+        );
+
+
+        /*
+         * =============================
+         * PIERNAS
+         * =============================
+         */
+
+        NpcBendApplier.apply(
+                rightLeg,
+                currentBendPose.rightLeg()
+        );
+
+        NpcBendApplier.apply(
+                leftLeg,
+                currentBendPose.leftLeg()
+        );
+
+        /*
+         * Segunda capa.
+         */
+        NpcBendApplier.apply(
+                rightPants,
+                currentBendPose.rightLeg()
+        );
+
+        NpcBendApplier.apply(
+                leftPants,
+                currentBendPose.leftLeg()
+        );
     }
 }
