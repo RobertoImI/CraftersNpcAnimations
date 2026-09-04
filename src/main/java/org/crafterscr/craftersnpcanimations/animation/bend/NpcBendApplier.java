@@ -1,7 +1,7 @@
 package org.crafterscr.craftersnpcanimations.animation.bend;
 
-import com.zigythebird.bendable_cuboids.api.BendableCube;
-import com.zigythebird.bendable_cuboids.api.BendableModelPart;
+import dev.kosmx.playerAnim.impl.Helper;
+import dev.kosmx.playerAnim.impl.animation.IBendHelper;
 import net.minecraft.client.model.geom.ModelPart;
 
 public final class NpcBendApplier {
@@ -9,6 +9,13 @@ public final class NpcBendApplier {
     private NpcBendApplier() {
     }
 
+    /**
+     * Wrapper de compatibilidad.
+     *
+     * El render principal ya no utiliza esta clase:
+     * AnimationApplier aplica bend + axis directamente
+     * mediante el sistema original de PlayerAnimator.
+     */
     public static void apply(
             ModelPart part,
             float bend
@@ -18,27 +25,9 @@ public final class NpcBendApplier {
             return;
         }
 
-        /*
-         * El ModelPart solamente será bendable
-         * si BendableCuboids lo convirtió durante
-         * el bake.
-         */
-        if (!(part instanceof BendableModelPart bendablePart)) {
-            return;
-        }
-
-        /*
-         * Un brazo/pierna Vanilla normalmente
-         * tiene un solo cubo principal.
-         */
-        BendableCube cube =
-                bendablePart.bc$getCuboid(0);
-
-        if (cube == null) {
-            return;
-        }
-
-        cube.applyBend(
+        IBendHelper.INSTANCE.bend(
+                part,
+                0.0F,
                 bend
         );
     }
@@ -47,9 +36,34 @@ public final class NpcBendApplier {
             ModelPart part
     ) {
 
-        apply(
+        if (part == null) {
+            return;
+        }
+
+        IBendHelper.INSTANCE.bend(
                 part,
-                0.0F
+                null
+        );
+    }
+
+    /**
+     * Se conservan por compatibilidad con el diagnóstico
+     * anterior. Ya no inspeccionamos BendableCuboids.
+     */
+    public static boolean isBendable(
+            ModelPart part
+    ) {
+
+        return part != null
+                && Helper.isBendEnabled();
+    }
+
+    public static boolean hasBendableCube(
+            ModelPart part
+    ) {
+
+        return isBendable(
+                part
         );
     }
 }

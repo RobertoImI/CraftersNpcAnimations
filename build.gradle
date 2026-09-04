@@ -19,8 +19,8 @@ repositories {
     mavenLocal()
 
     maven {
-        name = "RedlanceMinecraft"
-        url = "https://repo.redlance.org/public"
+        name = "KosmXMaven"
+        url = "https://maven.kosmx.dev/"
     }
 }
 
@@ -106,8 +106,36 @@ idea {
 }
 
 dependencies {
+    /*
+     * PlayerAnimator 2.0.1 es la versión usada por
+     * Emotecraft 2.4.x en Minecraft 1.21.1.
+     *
+     * Lo incluimos dentro de CraftersNpcAnimations
+     * para no depender de que el usuario lo instale por separado.
+     */
+    jarJar(
+            implementation(
+                    "dev.kosmx.player-anim:player-animation-lib-forge:2.0.1+1.21.1"
+            )
+    ) {
+        version {
+            strictly "[2.0.1+1.21.1]"
+            prefer "2.0.1+1.21.1"
+        }
+    }
 
-    implementation(
-            "com.zigythebird.bendable_cuboids:BendableCuboidsNeoForge:2.0.0+alpha.1+dev+mc.1.21.1"
-    )
+    /*
+     * Sistema de bend utilizado por PlayerAnimator/Emotecraft
+     * para Minecraft 1.21.1.
+     */
+    jarJar(
+            implementation(
+                    "io.github.kosmx.bendy-lib:bendy-lib-forge:5.1"
+            )
+    ) {
+        version {
+            strictly "[5.1]"
+            prefer "5.1"
+        }
+    }
 }

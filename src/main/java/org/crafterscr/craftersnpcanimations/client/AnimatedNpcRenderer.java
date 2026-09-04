@@ -1,12 +1,13 @@
 package org.crafterscr.craftersnpcanimations.client;
 
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.resources.ResourceLocation;
+import org.crafterscr.craftersnpcanimations.client.model.AnimatedNpcModelLayers;
 import org.crafterscr.craftersnpcanimations.entity.AnimatedNpcEntity;
 import org.crafterscr.craftersnpcanimations.skin.NpcSkinManager;
-
-import org.crafterscr.craftersnpcanimations.client.model.AnimatedNpcModelLayers;
 
 public class AnimatedNpcRenderer
         extends HumanoidMobRenderer<
@@ -32,7 +33,8 @@ public class AnimatedNpcRenderer
                 0.5F
         );
 
-        wideModel = getModel();
+        wideModel =
+                getModel();
 
         slimModel =
                 new AnimatedNpcModel(
@@ -48,8 +50,8 @@ public class AnimatedNpcRenderer
             AnimatedNpcEntity entity,
             float entityYaw,
             float partialTicks,
-            com.mojang.blaze3d.vertex.PoseStack poseStack,
-            net.minecraft.client.renderer.MultiBufferSource buffer,
+            PoseStack poseStack,
+            MultiBufferSource buffer,
             int packedLight
     ) {
 
@@ -66,6 +68,40 @@ public class AnimatedNpcRenderer
                 buffer,
                 packedLight
         );
+    }
+
+    /**
+     * PlayerAnimator aplica el hueso "body" al render
+     * completo del jugador desde PlayerRenderer.
+     *
+     * Nuestro NPC no pasa por PlayerRenderer, por lo que
+     * debemos hacer esa misma operación aquí.
+     */
+    @Override
+    protected void setupRotations(
+            AnimatedNpcEntity entity,
+            PoseStack poseStack,
+            float bob,
+            float yBodyRot,
+            float partialTick,
+            float scale
+    ) {
+
+        super.setupRotations(
+                entity,
+                poseStack,
+                bob,
+                yBodyRot,
+                partialTick,
+                scale
+        );
+
+        NpcPlayerAnimatorBridge
+                .applyBodyTransform(
+                        entity,
+                        partialTick,
+                        poseStack
+                );
     }
 
     @Override

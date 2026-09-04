@@ -1,23 +1,24 @@
 package org.crafterscr.craftersnpcanimations.client;
 
+import dev.kosmx.playerAnim.core.impl.AnimationProcessor;
+import dev.kosmx.playerAnim.core.util.SetableSupplier;
+import dev.kosmx.playerAnim.impl.IMutableModel;
+import dev.kosmx.playerAnim.impl.animation.AnimationApplier;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
-import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmote;
-import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmotePlayback;
-import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteRegistry;
-import org.crafterscr.craftersnpcanimations.animation.engine.NpcAnimationEngine;
 import org.crafterscr.craftersnpcanimations.entity.AnimatedNpcEntity;
-
-import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendController;
-import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendPose;
-
-import org.crafterscr.craftersnpcanimations.animation.bend.NpcBendApplier;
 
 public class AnimatedNpcModel
         extends PlayerModel<AnimatedNpcEntity> {
 
-    private NpcBendPose currentBendPose =
-            new NpcBendPose();
+    /*
+     * PlayerAnimator utiliza este supplier durante el
+     * render para aplicar correctamente el bend del body
+     * a las partes superiores del modelo.
+     */
+    private final SetableSupplier<AnimationProcessor>
+            npcAnimationSupplier =
+            new SetableSupplier<>();
 
     public AnimatedNpcModel(
             ModelPart root,
@@ -28,6 +29,18 @@ public class AnimatedNpcModel
                 root,
                 slim
         );
+
+        /*
+         * HumanoidModel recibe IMutableModel mediante
+         * el Mixin de PlayerAnimator.
+         *
+         * Sustituimos el supplier de jugador por uno
+         * controlado por nuestro NPC.
+         */
+        ((IMutableModel) this)
+                .setEmoteSupplier(
+                        npcAnimationSupplier
+                );
     }
 
     @Override
@@ -41,20 +54,11 @@ public class AnimatedNpcModel
     ) {
 
         /*
-         * ==============================
-         * RESET
-         * ==============================
-         */
-
-        resetAnimatedParts();
-
-        /*
-         * Vanilla calcula:
+         * Primero Vanilla.
          *
-         * caminar
-         * cabeza
-         * brazos
-         * piernas
+         * Esto es importante porque PlayerAnimator utiliza
+         * el estado Vanilla como valor base para los canales
+         * que el emote no controla.
          */
         super.setupAnim(
                 entity,
@@ -65,113 +69,86 @@ public class AnimatedNpcModel
                 headPitch
         );
 
-        /*
-         * Sin emote:
-         *
-         * solamente Vanilla.
-         */
-        if (!entity.isAnimationPlaying()) {
-
-            currentBendPose.reset();
-
-            resetBends();
-
-            return;
-        }
-
-        /*
-         * ==============================
-         * BUSCAR EMOTE
-         * ==============================
-         */
-
-        NpcEmote emote =
-                NpcEmoteRegistry.get(
-                        entity.getAnimationId()
-                );
-
-        /*
-         * Mantener temporalmente compatibilidad
-         * con las animaciones antiguas.
-         */
-        if (emote == null) {
-
-            currentBendPose.reset();
-
-            resetBends();
-
-            return;
-        }
-
-        /*
-         * ==============================
-         * TIEMPO
-         * ==============================
-         */
-
-        long gameTime =
-                entity.level()
-                        .getGameTime();
-
-        long startedAt =
-                entity.getAnimationStart();
-
-        /*
-         * ageInTicks contiene:
-         *
-         * entity.tickCount + partialTicks
-         *
-         * Recuperamos la fracción para que
-         * no se vea a 20 FPS.
-         */
         float partialTick =
                 ageInTicks
                         - entity.tickCount;
 
-        float elapsedTicks =
-                (gameTime - startedAt)
-                        + partialTick;
-
-        if (elapsedTicks < 0.0F) {
-            elapsedTicks = 0.0F;
-        }
-
-        float animationTick =
-                NpcEmotePlayback
-                        .calculateAnimationTick(
-                                emote,
-                                elapsedTicks,
-                                entity.isAnimationLooping()
+        AnimationApplier applier =
+                NpcPlayerAnimatorBridge
+                        .createApplier(
+                                entity,
+                                partialTick
                         );
 
-        currentBendPose =
-                NpcBendController.sample(
-                        emote,
-                        animationTick
-                );
+        if (applier == null) {
 
+            npcAnimationSupplier.set(
+                    null
+            );
+
+            return;
+        }
 
         /*
-         * ==============================
-         * APLICAR EMOTE
-         * ==============================
+         * Permite que el sistema de render de
+         * PlayerAnimator/BendyLib conozca el bend "body".
          */
-
-        applyEmote(
-                emote,
-                animationTick
+        npcAnimationSupplier.set(
+                applier
         );
 
-        applyBends();
-
         /*
-         * ==============================
-         * SEGUNDA CAPA
-         * ==============================
+         * ==========================================
+         * APLICACIÓN EXACTA DE PLAYERANIMATOR
+         * ==========================================
          *
-         * La ropa debe seguir al cuerpo.
+         * NO aplicamos "body" al ModelPart body.
+         *
+         * "body" es el ROOT global y se aplica desde
+         * AnimatedNpcRenderer al PoseStack completo.
+         *
+         * "torso" sí representa el pecho en formatos
+         * modernos.
+         *
+         * En SPE_Lemonade, al no existir "version",
+         * PlayerAnimator lo interpreta como legacy y
+         * convierte el antiguo "torso" en "body".
          */
 
+        applier.updatePart(
+                "head",
+                head
+        );
+
+        applier.updatePart(
+                "leftArm",
+                leftArm
+        );
+
+        applier.updatePart(
+                "rightArm",
+                rightArm
+        );
+
+        applier.updatePart(
+                "leftLeg",
+                leftLeg
+        );
+
+        applier.updatePart(
+                "rightLeg",
+                rightLeg
+        );
+
+        applier.updatePart(
+                "torso",
+                body
+        );
+
+        /*
+         * La segunda capa se copia DESPUÉS de aplicar
+         * la animación, igual que en PlayerModel.
+         */
         hat.copyFrom(
                 head
         );
@@ -194,171 +171,6 @@ public class AnimatedNpcModel
 
         leftPants.copyFrom(
                 leftLeg
-        );
-    }
-
-    private void applyEmote(
-            NpcEmote emote,
-            float tick
-    ) {
-
-        /*
-         * HEAD
-         */
-        NpcAnimationEngine.applyBone(
-                emote,
-                "head",
-                head,
-                tick
-        );
-
-        /*
-         * TORSO
-         */
-        NpcAnimationEngine.applyBone(
-                emote,
-                "torso",
-                body,
-                tick
-        );
-
-        /*
-         * BRAZOS
-         */
-        NpcAnimationEngine.applyBone(
-                emote,
-                "rightArm",
-                rightArm,
-                tick
-        );
-
-        NpcAnimationEngine.applyBone(
-                emote,
-                "leftArm",
-                leftArm,
-                tick
-        );
-
-        /*
-         * PIERNAS
-         */
-        NpcAnimationEngine.applyBone(
-                emote,
-                "rightLeg",
-                rightLeg,
-                tick
-        );
-
-        NpcAnimationEngine.applyBone(
-                emote,
-                "leftLeg",
-                leftLeg,
-                tick
-        );
-    }
-
-    /*
-     * ==============================
-     * RESET
-     * ==============================
-     */
-
-    private void resetAnimatedParts() {
-
-        head.resetPose();
-        hat.resetPose();
-
-        body.resetPose();
-        jacket.resetPose();
-
-        rightArm.resetPose();
-        rightSleeve.resetPose();
-
-        leftArm.resetPose();
-        leftSleeve.resetPose();
-
-        rightLeg.resetPose();
-        rightPants.resetPose();
-
-        leftLeg.resetPose();
-        leftPants.resetPose();
-    }
-
-    public float getRightArmBend() {
-        return currentBendPose.rightArm();
-    }
-
-    public float getLeftArmBend() {
-        return currentBendPose.leftArm();
-    }
-
-    public float getRightLegBend() {
-        return currentBendPose.rightLeg();
-    }
-
-    public float getLeftLegBend() {
-        return currentBendPose.leftLeg();
-    }
-
-    private void applyBends() {
-
-        /*
-         * =============================
-         * BRAZOS
-         * =============================
-         */
-
-        NpcBendApplier.apply(
-                rightArm,
-                currentBendPose.rightArm()
-        );
-
-        NpcBendApplier.apply(
-                leftArm,
-                currentBendPose.leftArm()
-        );
-
-        /*
-         * Segunda capa de la skin.
-         */
-        NpcBendApplier.apply(
-                rightSleeve,
-                currentBendPose.rightArm()
-        );
-
-        NpcBendApplier.apply(
-                leftSleeve,
-                currentBendPose.leftArm()
-        );
-
-
-        /*
-         * =============================
-         * PIERNAS
-         * =============================
-         */
-
-        NpcBendApplier.apply(
-                rightLeg,
-                currentBendPose.rightLeg()
-        );
-
-        NpcBendApplier.apply(
-                leftLeg,
-                currentBendPose.leftLeg()
-        );
-
-        /*
-         * Segunda capa.
-         */
-        NpcBendApplier.apply(
-                rightPants,
-                currentBendPose.rightLeg()
-        );
-
-        NpcBendApplier.apply(
-                leftPants,
-                currentBendPose.leftLeg()
         );
     }
 }

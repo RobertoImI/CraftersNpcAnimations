@@ -3,6 +3,8 @@ package org.crafterscr.craftersnpcanimations.animation.emote;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import dev.kosmx.playerAnim.core.data.KeyframeAnimation;
+import dev.kosmx.playerAnim.core.data.gson.AnimationJson;
 import org.crafterscr.craftersnpcanimations.CraftersNpcAnimations;
 
 import java.io.IOException;
@@ -11,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class NpcEmoteParser {
@@ -44,9 +47,9 @@ public final class NpcEmoteParser {
                     rootElement.getAsJsonObject();
 
             /*
-             * ==============================
-             * INFORMACIÓN GENERAL
-             * ==============================
+             * ==========================================
+             * ID / METADATA
+             * ==========================================
              */
 
             String fileName =
@@ -85,12 +88,6 @@ public final class NpcEmoteParser {
                             ""
                     );
 
-            /*
-             * ==============================
-             * EMOTE
-             * ==============================
-             */
-
             if (!root.has("emote")
                     || !root.get("emote").isJsonObject()) {
 
@@ -104,52 +101,71 @@ public final class NpcEmoteParser {
                             "emote"
                     );
 
-            boolean loop =
-                    getFlexibleBoolean(
-                            emoteObject,
-                            "isLoop",
-                            false
+            /*
+             * ==========================================
+             * PLAYERANIMATOR NATIVO
+             * ==========================================
+             *
+             * Este es el cambio importante.
+             *
+             * Ya NO intentamos reconstruir a mano la
+             * semántica de Emotecraft para renderizar.
+             *
+             * AnimationJson es el parser que utiliza
+             * PlayerAnimator para el formato legacy.
+             *
+             * Por ejemplo:
+             *
+             * version ausente -> versión legacy 1
+             * torso -> body/root
+             * beginTick / endTick / stopTick
+             * returnTick
+             * easing
+             * bend + axis
+             *
+             * se interpretan igual que en PlayerAnimator.
+             */
+
+            KeyframeAnimation playerAnimation =
+                    parsePlayerAnimation(
+                            rootElement
                     );
+
+            /*
+             * Los tiempos se toman de la animación ya
+             * interpretada por PlayerAnimator.
+             */
+            boolean loop =
+                    playerAnimation.isInfinite;
 
             int returnTick =
-                    getInt(
-                            emoteObject,
-                            "returnTick",
-                            0
-                    );
+                    playerAnimation.returnToTick;
 
             int beginTick =
-                    getInt(
-                            emoteObject,
-                            "beginTick",
-                            0
-                    );
+                    playerAnimation.beginTick;
 
             int endTick =
-                    getInt(
-                            emoteObject,
-                            "endTick",
-                            0
-                    );
+                    playerAnimation.endTick;
 
             int stopTick =
-                    getInt(
-                            emoteObject,
-                            "stopTick",
-                            endTick
-                    );
+                    playerAnimation.stopTick;
 
             boolean degrees =
                     getFlexibleBoolean(
                             emoteObject,
                             "degrees",
-                            false
+                            true
                     );
 
             /*
-             * ==============================
-             * TRACKS
-             * ==============================
+             * ==========================================
+             * TRACKS DE DIAGNÓSTICO
+             * ==========================================
+             *
+             * Los mantenemos para que no se rompan
+             * /cnpca emotes info y debug.
+             *
+             * El render ya NO utiliza estos tracks.
              */
 
             Map<String, NpcEmoteBoneTrack> bones =
@@ -173,9 +189,6 @@ public final class NpcEmoteParser {
                 }
             }
 
-            /*
-             * Ordenar todos los keyframes.
-             */
             for (NpcEmoteBoneTrack track :
                     bones.values()) {
 
@@ -195,26 +208,61 @@ public final class NpcEmoteParser {
                             endTick,
                             stopTick,
                             degrees,
-                            bones
+                            bones,
+                            playerAnimation
                     );
 
             CraftersNpcAnimations.LOGGER.info(
-                    "Emote parseado: {} | bones={} | keyframes={} | loop={}",
+                    "Emote PlayerAnimator cargado: {} | bones={} | keyframes={} | loop={} | begin={} | end={} | stop={}",
                     id,
                     bones.size(),
                     emote.totalKeyframes(),
-                    loop
+                    loop,
+                    beginTick,
+                    endTick,
+                    stopTick
             );
 
             return emote;
         }
     }
 
-    /*
-     * ==============================
-     * MOVIMIENTO
-     * ==============================
-     */
+    @SuppressWarnings("deprecation")
+    private static KeyframeAnimation parsePlayerAnimation(
+            JsonElement rootElement
+    ) throws IOException {
+
+        try {
+
+            List<KeyframeAnimation> animations =
+                    AnimationJson.GSON.fromJson(
+                            rootElement,
+                            AnimationJson.getListedTypeToken()
+                    );
+
+            if (animations == null
+                    || animations.isEmpty()
+                    || animations.getFirst() == null) {
+
+                throw new IOException(
+                        "PlayerAnimator no devolvió ninguna animación."
+                );
+            }
+
+            return animations.getFirst();
+
+        } catch (IOException exception) {
+
+            throw exception;
+
+        } catch (Exception exception) {
+
+            throw new IOException(
+                    "PlayerAnimator no pudo interpretar el JSON de Emotecraft.",
+                    exception
+            );
+        }
+    }
 
     private static void parseMove(
             JsonObject move,
@@ -242,10 +290,6 @@ public final class NpcEmoteParser {
                         0
                 );
 
-        /*
-         * Todo lo que NO sea metadata del keyframe
-         * lo tratamos como posible hueso.
-         */
         for (Map.Entry<String, JsonElement> entry :
                 move.entrySet()) {
 
@@ -253,7 +297,9 @@ public final class NpcEmoteParser {
                     entry.getKey();
 
             if (key.equals("tick")
+                    || key.equals("comment")
                     || key.equals("easing")
+                    || key.equals("easingArg")
                     || key.equals("turn")) {
 
                 continue;
@@ -276,12 +322,6 @@ public final class NpcEmoteParser {
             );
         }
     }
-
-    /*
-     * ==============================
-     * HUESO
-     * ==============================
-     */
 
     private static void parseBoneProperties(
             String boneName,
@@ -307,12 +347,6 @@ public final class NpcEmoteParser {
                                     property.getKey()
                             );
 
-            /*
-             * Propiedad que todavía no conocemos.
-             *
-             * No rompemos el emote.
-             * Simplemente la ignoramos.
-             */
             if (channel == null) {
                 continue;
             }
@@ -343,12 +377,6 @@ public final class NpcEmoteParser {
         }
     }
 
-    /*
-     * ==============================
-     * UTILIDADES JSON
-     * ==============================
-     */
-
     private static String getString(
             JsonObject object,
             String key,
@@ -360,11 +388,13 @@ public final class NpcEmoteParser {
         }
 
         try {
+
             return object
                     .get(key)
                     .getAsString();
 
         } catch (Exception ignored) {
+
             return defaultValue;
         }
     }
@@ -380,28 +410,17 @@ public final class NpcEmoteParser {
         }
 
         try {
+
             return object
                     .get(key)
                     .getAsInt();
 
         } catch (Exception ignored) {
+
             return defaultValue;
         }
     }
 
-    /*
-     * El archivo que me pasaste tiene por ejemplo:
-     *
-     * "isLoop": "true"
-     *
-     * como STRING.
-     *
-     * Pero otros emotes pueden usar:
-     *
-     * "isLoop": true
-     *
-     * Esta función acepta ambos.
-     */
     private static boolean getFlexibleBoolean(
             JsonObject object,
             String key,
