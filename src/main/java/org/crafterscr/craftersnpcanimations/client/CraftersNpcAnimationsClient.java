@@ -3,11 +3,12 @@ package org.crafterscr.craftersnpcanimations.client;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
-import org.crafterscr.craftersnpcanimations.CraftersNpcAnimations;
-import org.crafterscr.craftersnpcanimations.entity.ModEntities;
 
+import org.crafterscr.craftersnpcanimations.CraftersNpcAnimations;
+import org.crafterscr.craftersnpcanimations.client.compat.CraftersNpcClientCompat;
 import org.crafterscr.craftersnpcanimations.client.model.AnimatedNpcModelDefinition;
 import org.crafterscr.craftersnpcanimations.client.model.AnimatedNpcModelLayers;
+import org.crafterscr.craftersnpcanimations.entity.ModEntities;
 
 @EventBusSubscriber(
         modid = CraftersNpcAnimations.MOD_ID,
@@ -22,6 +23,11 @@ public final class CraftersNpcAnimationsClient {
     public static void registerRenderers(
             EntityRenderersEvent.RegisterRenderers event
     ) {
+
+        /*
+         * Conectar opcionalmente CraftersNpc.
+         */
+        CraftersNpcClientCompat.install();
 
         event.registerEntityRenderer(
                 ModEntities.ANIMATED_NPC.get(),

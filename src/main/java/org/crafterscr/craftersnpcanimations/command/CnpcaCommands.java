@@ -51,8 +51,11 @@ public final class CnpcaCommands {
                                                                 "id",
                                                                 StringArgumentType.word()
                                                         )
+                                                        .suggests(
+                                                                CnpcaSuggestions::suggestAnimatedNpcIds
+                                                        )
                                                         .executes(context ->
-                                                                createNpc(
+                                                                removeNpc(
                                                                         context.getSource(),
                                                                         StringArgumentType.getString(
                                                                                 context,
@@ -107,6 +110,9 @@ public final class CnpcaCommands {
                                                                 "id",
                                                                 StringArgumentType.word()
                                                         )
+                                                        .suggests(
+                                                                CnpcaSuggestions::suggestAnimatedNpcIds
+                                                        )
                                                         .then(
                                                                 Commands.argument(
                                                                                 "url",
@@ -139,6 +145,9 @@ public final class CnpcaCommands {
                                                 Commands.argument(
                                                                 "id",
                                                                 StringArgumentType.word()
+                                                        )
+                                                        .suggests(
+                                                                CnpcaSuggestions::suggestAnimatedNpcIds
                                                         )
 
                                                         .then(
@@ -186,6 +195,9 @@ public final class CnpcaCommands {
                                                                 "id",
                                                                 StringArgumentType.word()
                                                         )
+                                                        .suggests(
+                                                                CnpcaSuggestions::suggestAnimatedNpcIds
+                                                        )
 
                                                         .then(
                                                                 Commands.literal("stop")
@@ -204,6 +216,9 @@ public final class CnpcaCommands {
                                                                 Commands.argument(
                                                                                 "emote",
                                                                                 StringArgumentType.word()
+                                                                        )
+                                                                        .suggests(
+                                                                                CnpcaSuggestions::suggestEmoteIds
                                                                         )
 
                                                                         .executes(context ->
@@ -271,6 +286,9 @@ public final class CnpcaCommands {
                                                                 Commands.argument(
                                                                                 "emote",
                                                                                 StringArgumentType.word()
+                                                                        )
+                                                                        .suggests(
+                                                                                CnpcaSuggestions::suggestEmoteIds
                                                                         )
                                                                         .executes(
                                                                                 context ->

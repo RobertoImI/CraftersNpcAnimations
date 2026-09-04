@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import net.neoforged.fml.loading.FMLPaths;
 import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteLoader;
 
+import org.crafterscr.craftersnpcanimations.compat.craftersnpc.CraftersNpcCompatCommands;
+
 @Mod(CraftersNpcAnimations.MOD_ID)
 public final class CraftersNpcAnimations {
 
@@ -32,7 +34,16 @@ public final class CraftersNpcAnimations {
         );
     }
 
-    private void registerCommands(RegisterCommandsEvent event) {
-        CnpcaCommands.register(event.getDispatcher());
+    private void registerCommands(
+            RegisterCommandsEvent event
+    ) {
+
+        CnpcaCommands.register(
+                event.getDispatcher()
+        );
+
+        CraftersNpcCompatCommands.register(
+                event.getDispatcher()
+        );
     }
 }
