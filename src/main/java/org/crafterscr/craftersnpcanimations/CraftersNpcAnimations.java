@@ -14,6 +14,8 @@ import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteLoader;
 
 import org.crafterscr.craftersnpcanimations.compat.craftersnpc.CraftersNpcCompatCommands;
 
+import org.crafterscr.craftersnpcanimations.compat.craftersnpc.CraftersNpcRouteEmoteCompat;
+
 @Mod(CraftersNpcAnimations.MOD_ID)
 public final class CraftersNpcAnimations {
 
@@ -32,6 +34,8 @@ public final class CraftersNpcAnimations {
         NpcEmoteLoader.initialize(
                 FMLPaths.GAMEDIR.get()
         );
+
+        CraftersNpcRouteEmoteCompat.install();
     }
 
     private void registerCommands(
