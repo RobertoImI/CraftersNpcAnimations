@@ -7,20 +7,37 @@ import dev.kosmx.playerAnim.api.TransformType;
 import dev.kosmx.playerAnim.api.layered.KeyframeAnimationPlayer;
 import dev.kosmx.playerAnim.core.data.KeyframeAnimation;
 import dev.kosmx.playerAnim.core.impl.AnimationProcessor;
+import dev.kosmx.playerAnim.core.util.Pair;
 import dev.kosmx.playerAnim.core.util.SetableSupplier;
 import dev.kosmx.playerAnim.core.util.Vec3f;
+import dev.kosmx.playerAnim.impl.Helper;
 import dev.kosmx.playerAnim.impl.IMutableModel;
 import dev.kosmx.playerAnim.impl.animation.AnimationApplier;
 
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.HumanoidArm;
 
 import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmote;
 import org.crafterscr.craftersnpcanimations.animation.emote.NpcEmoteRegistry;
 import org.crafterscr.craftersnpcanimations.compat.craftersnpc.CraftersNpcCompat;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+import java.util.Map;
+import java.util.WeakHashMap;
 
 public final class CraftersNpcAnimationBridge {
+
+    /**
+     * El ItemInHandLayer se renderiza después de setupAnim(). Guardamos el
+     * mismo AnimationApplier usado por el modelo durante ese frame para que el
+     * objeto en mano reciba exactamente el mismo partial tick y no tiemble ni
+     * se desincronice respecto al brazo.
+     */
+    private static final Map<Entity, AnimationApplier> ACTIVE_APPLIERS =
+            new WeakHashMap<>();
 
     private CraftersNpcAnimationBridge() {
     }
@@ -135,12 +152,16 @@ public final class CraftersNpcAnimationBridge {
 
         if (applier == null) {
 
+            ACTIVE_APPLIERS.remove(entity);
+
             supplier.set(
                     null
             );
 
             return;
         }
+
+        ACTIVE_APPLIERS.put(entity, applier);
 
         supplier.set(
                 applier
@@ -283,6 +304,162 @@ public final class CraftersNpcAnimationBridge {
                 0.0D,
                 -0.7D,
                 0.0D
+        );
+    }
+
+    /**
+     * Replica para CnpcEntity la corrección de HeldItemMixin de
+     * PlayerAnimator. El mixin original solo se activa para IAnimatedPlayer,
+     * por eso un CNPC podía doblar visualmente el brazo mientras la manzana,
+     * herramienta u objeto seguía en la ubicación vanilla.
+     */
+    public static void applyHeldItemBend(
+            Entity entity,
+            HumanoidArm arm,
+            PoseStack poseStack
+    ) {
+
+        if (!Helper.isBendEnabled()) {
+            return;
+        }
+
+        AnimationApplier applier =
+                ACTIVE_APPLIERS.get(entity);
+
+        if (applier == null) {
+            return;
+        }
+
+        Vec3f data =
+                applier.get3DTransform(
+                        arm == HumanoidArm.LEFT
+                                ? "leftArm"
+                                : "rightArm",
+                        TransformType.BEND,
+                        new Vec3f(
+                                0.0F,
+                                0.0F,
+                                0.0F
+                        )
+                );
+
+        Pair<Float, Float> bendData =
+                new Pair<>(
+                        data.getX(),
+                        data.getY()
+                );
+
+        float offset = 0.25F;
+        float bend = bendData.getRight();
+        float axisAngle = -bendData.getLeft();
+
+        Vector3f axis =
+                new Vector3f(
+                        (float) Math.cos(axisAngle),
+                        0.0F,
+                        (float) Math.sin(axisAngle)
+                );
+
+        poseStack.translate(
+                0.0D,
+                offset,
+                0.0D
+        );
+
+        poseStack.mulPose(
+                new Quaternionf()
+                        .rotateAxis(
+                                bend,
+                                axis
+                        )
+        );
+
+        poseStack.translate(
+                0.0D,
+                -offset,
+                0.0D
+        );
+    }
+
+    /**
+     * Aplica los canales especiales leftItem/rightItem que puede traer un
+     * emote de PlayerAnimator/Emotecraft. De este modo los props diseñados para
+     * una animación siguen la mano y además respetan su offset/rotación propia.
+     */
+    public static void applyHeldItemTransform(
+            Entity entity,
+            HumanoidArm arm,
+            PoseStack poseStack
+    ) {
+
+        AnimationApplier applier =
+                ACTIVE_APPLIERS.get(entity);
+
+        if (applier == null) {
+            return;
+        }
+
+        String itemPart =
+                arm == HumanoidArm.LEFT
+                        ? "leftItem"
+                        : "rightItem";
+
+        Vec3f scale =
+                applier.get3DTransform(
+                        itemPart,
+                        TransformType.SCALE,
+                        new Vec3f(
+                                ModelPart.DEFAULT_SCALE,
+                                ModelPart.DEFAULT_SCALE,
+                                ModelPart.DEFAULT_SCALE
+                        )
+                );
+
+        Vec3f rotation =
+                applier.get3DTransform(
+                        itemPart,
+                        TransformType.ROTATION,
+                        Vec3f.ZERO
+                );
+
+        Vec3f position =
+                applier.get3DTransform(
+                        itemPart,
+                        TransformType.POSITION,
+                        Vec3f.ZERO
+                )
+                        .scale(
+                                1.0F / 16.0F
+                        );
+
+        poseStack.scale(
+                scale.getX(),
+                scale.getY(),
+                scale.getZ()
+        );
+
+        poseStack.translate(
+                position.getX(),
+                position.getY(),
+                position.getZ()
+        );
+
+        poseStack.mulPose(
+                Axis.ZP.rotation(
+                        rotation.getZ()
+                )
+        );
+
+        poseStack.mulPose(
+                Axis.YP.rotation(
+                        rotation.getY()
+                )
+        );
+
+        poseStack.mulPose(
+                Axis.XP.rotation(
+                        rotation.getX()
+                )
         );
     }
 
